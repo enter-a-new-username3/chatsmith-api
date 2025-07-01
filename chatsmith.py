@@ -26,13 +26,10 @@ class RSAEncryption:
             self.public_key = str_public_key_from_jni
 
             if self.public_key is not None:
-                # Convert string to bytes using UTF-8 encoding
                 key_bytes = self.public_key.encode('utf-8')
 
-                # Decode base64 to get DER encoded key
                 der_key_bytes = base64.b64decode(key_bytes)
 
-                # Load the DER encoded public key
                 public_key_obj = load_der_public_key(der_key_bytes)
 
                 return public_key_obj
@@ -52,23 +49,18 @@ class RSAEncryption:
             str: Base64 encoded encrypted text, or error message
         """
         try:
-            # Get the public key
             public_key = self.get_public_key()
 
             if public_key is None:
                 return "NO_PUB_KEY"
 
-            # Convert input text to bytes
             text_bytes = cipher_text.encode('utf-8')
 
-            # Encrypt using RSA with PKCS1v15 padding (equivalent to Java's RSA/ECB/PKCS1Padding)
             encrypted_bytes = public_key.encrypt(
                 text_bytes,
                 padding.PKCS1v15()
             )
 
-            # Encode result as base64 and return as string
-            # Using base64.b64encode() which is equivalent to Java's Base64.encodeToString() with NO_WRAP flag
             encrypted_b64 = base64.b64encode(encrypted_bytes).decode('utf-8')
 
             return encrypted_b64
@@ -199,8 +191,6 @@ class ChatSmithAIModel:
             user_input = input("> ")
             response = self.ask(user_input)
             print(f"AI: {response.json()['choices'][0]['Message']['content']}")
-# Usage Example:
 if __name__ == "__main__":
     ai_model = ChatSmithAIModel()
-    # Make sure you set the user message here
     ai_model.interactive()
