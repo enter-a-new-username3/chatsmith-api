@@ -1,4 +1,4 @@
-# chatsmith-api(Unofficial Client)
+# chatsmith-api (Unofficial Client)
 Reverse engineered API of Chat Smith app on Play Store
 
 ⚠️ **This code was written in a rush. It's messy, inefficient, and not production-grade. You've been warned.** ⚠️
