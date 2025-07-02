@@ -11,8 +11,6 @@ from datetime import datetime
 
 class RSAEncryption:
     def __init__(self):
-        self.TEXT_TYPE_RSA = "RSA"
-        self.TEXT_TYPE_RSA_ECB_PKCS1Padding = "RSA/ECB/PKCS1Padding"
         self.public_key = None
 
     def get_public_key(self):
