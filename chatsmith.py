@@ -22,19 +22,11 @@ class RSAEncryption:
         """
         try:
             # Hardcoded public key from the original Java code
-            str_public_key_from_jni = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCB8knKtJGP5VAkVhKvAtOQhl1ERGCv+jLVGDd9yAbnuJQwcb7y8AMmr4AZ8VONJh73epzsqg9vRgmToztXvzZPsj83AAGuCZIFWQb+QLl93VSuDk9a+uC+4E483XMtRD9YQoyXfusIGJbiyPNJqaY1i5SgZwzu7VYPpcSn7lv4eQIDAQAB"
-            self.public_key = str_public_key_from_jni
-
-            if self.public_key is not None:
-                key_bytes = self.public_key.encode('utf-8')
-
-                der_key_bytes = base64.b64decode(key_bytes)
-
-                public_key_obj = load_der_public_key(der_key_bytes)
-
-                return public_key_obj
-            else:
-                return None
+            self.public_key = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCB8knKtJGP5VAkVhKvAtOQhl1ERGCv+jLVGDd9yAbnuJQwcb7y8AMmr4AZ8VONJh73epzsqg9vRgmToztXvzZPsj83AAGuCZIFWQb+QLl93VSuDk9a+uC+4E483XMtRD9YQoyXfusIGJbiyPNJqaY1i5SgZwzu7VYPpcSn7lv4eQIDAQAB"
+            key_bytes = self.public_key.encode('utf-8')
+            der_key_bytes = base64.b64decode(key_bytes)
+            public_key_obj = load_der_public_key(der_key_bytes)
+            return public_key_obj
 
         except Exception as e:
             logging.error(f"Error loading public key: {e}")
@@ -75,7 +67,6 @@ class ChatSmithAIModel:
         self,
         provider="openai",
         model_name="gpt-4o-mini",
-        user_id="EB1E033074F65348",
         system_prompt="",
         device_id=None,
         access_token=None,
@@ -83,7 +74,7 @@ class ChatSmithAIModel:
     ):
         self.provider = provider
         self.model_name = model_name
-        self.user_id = user_id
+        self.user_id = os.urandom(8).hex()
         self.system_prompt = system_prompt
         self.device_id = device_id or self.generate_device_id()
         self.rsa_encryption = RSAEncryption()
@@ -101,33 +92,28 @@ class ChatSmithAIModel:
     def generate_device_id(self):
         return os.urandom(8).hex().upper()
 
-    def _generate_headers_token(self):
-        headers = {
-            'accept': 'application/json',
-            # 'accept-encoding': 'gzip',
-            'connection': 'Keep-Alive',
-            'content-type': 'application/json; charset=utf-8',
-            'host': 'api.vulcanlabs.co',
-            'user-agent': 'Chat Smith Android, Version 3.9.27(949)',
-            'x-vulcan-application-id': 'com.smartwidgetlabs.chatgpt',
-            'x-vulcan-request-id': str(random.randint(10**20, 10**21)),
-        }
-        return headers
-
-    def _generate_token_payload(self):
-        return {
-            'device_id': self.device_id,
-            'order_id': '',
-            'product_id': '',
-            'purchase_token': '',
-            'subscription_id': '',
-        }
-
     def fetch_access_token(self):
         url = 'https://api.vulcanlabs.co/smith-auth/api/v1/token'
-        headers = self._generate_headers_token()
-        json_data = self._generate_token_payload()
-        resp = self.session.post(url, headers=headers, json=json_data)
+        resp = self.session.post(
+            url,
+            headers={
+                'accept': 'application/json',
+                # 'accept-encoding': 'gzip',
+                'connection': 'Keep-Alive',
+                'content-type': 'application/json; charset=utf-8',
+                'host': 'api.vulcanlabs.co',
+                'user-agent': 'Chat Smith Android, Version 3.9.27(949)',
+                'x-vulcan-application-id': 'com.smartwidgetlabs.chatgpt',
+                'x-vulcan-request-id': str(random.randint(10**20, 10**21)),
+            },
+            json={
+                'device_id': self.device_id,
+                'order_id': '',
+                'product_id': '',
+                'purchase_token': '',
+                'subscription_id': '',
+            }
+        )
         resp.raise_for_status()
         data = resp.json()
         self.access_token = data.get("AccessToken")
@@ -169,12 +155,28 @@ class ChatSmithAIModel:
         if not self.access_token:
             self.fetch_access_token()
         ts = int(datetime.now().timestamp())
-
-        headers = self._generate_headers_chat(ts)
         payload = self._generate_chat_payload(user_message, nsfw_check=nsfw_check, tools=tools)
 
         url = 'https://api.vulcanlabs.co/smith-v2/api/v7/chat_android'
-        resp = self.session.post(url, headers=headers, json=payload)
+        resp = self.session.post(
+            url,
+            headers={
+                'accept': 'application/json',
+                # 'accept-encoding': 'gzip',
+                'authorization': f'Bearer {self.access_token}',
+                'connection': 'Keep-Alive',
+                'content-type': 'application/json; charset=utf-8',
+                'host': 'api.vulcanlabs.co',
+                'user-agent': 'Chat Smith Android, Version 3.9.27(949)',
+                'x-auth-token': self.rsa_encryption.encrypt(
+                    '{"androidId":"%s","exp":%d,"iat":%d,"sha1":"lnVkAT9EQQjq8x+YzyKHXs9Otd8="}' % (self.device_id, ts, ts)
+                ),
+                'x-firebase-appcheck-error': '-9%3A+Integrity+API+error+%28-9%29%3A+Binding+to+the+service+in+the+Play+Store+has+failed.+This+can+be+due+to+having+an+old+Play+Store+version+installed+on+the+device.%0AAsk+the+user+to+update+Play+Store.%0A+%28https%3A%2F%2Fdeveloper.android.com%2Freference%2Fcom%2Fgoogle%2Fandroid%2Fplay%2Fcore%2Fintegrity%2Fmodel%2FIntegrityErrorCode.html%23CANNOT_BIND_TO_SERVICE%29.',
+                'x-vulcan-application-id': 'com.smartwidgetlabs.chatgpt',
+                'x-vulcan-request-id': str(random.randint(10**20, 10**21)),
+            },
+            json=payload
+        )
         resp.raise_for_status()
         self.messages.append(resp.json()["choices"][0]["Message"])
         return resp
